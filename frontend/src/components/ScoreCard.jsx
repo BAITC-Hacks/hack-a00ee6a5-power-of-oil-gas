@@ -1,34 +1,10 @@
-function tone(score) {
-  if (score >= 90) return 'priority'
-  if (score >= 70) return 'ready'
-  if (score >= 40) return 'working'
-  return 'draft'
-}
+import {t,useLocale,ratingSummary} from '../i18n';
+import {Bot,Check,Minus,Info} from 'lucide-react';
+function tone(score){return score>=90?'priority':score>=70?'ready':score>=40?'working':'draft'}
+export default function ScoreCard({rating,preview=false}){
+  useLocale();
 
-export default function ScoreCard({ rating, preview = false }) {
-  if (!rating) return null
-  const score = rating.score ?? 0
-  return (
-    <section className={`score-card ${tone(score)}`}>
-      <div className="score-main">
-        <div>
-          <div className="eyebrow">{preview ? 'Предварительная полнота' : 'Официальный рейтинг'}</div>
-          <div className="score-number">{score}<span>/100</span></div>
-        </div>
-        <span className={`status-pill ${tone(score)}`}>{rating.readiness_level}</span>
-      </div>
-      <div className="score-track"><div className="score-fill" style={{ width: `${score}%` }} /></div>
-      {preview && <p className="muted compact">Баллы станут официальными только после ручного подтверждения карточки.</p>}
-      {rating.breakdown?.length > 0 && (
-        <div className="breakdown-grid">
-          {rating.breakdown.map((item) => (
-            <div className="breakdown-row" key={item.field}>
-              <span>{item.label}</span>
-              <b>{item.points}/{item.weight}</b>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  )
+ if(!rating)return <div className="score-card">{t("Подготавливаем оценку…")}</div>;
+ const score=rating.score??0;const ai=rating.mode==='openai';
+ return <section className={`score-card ${tone(score)}`}><div className="score-main"><div><div className="eyebrow">{preview?t("Оценка готовности"):t("Подтверждённый рейтинг")}</div><div className="score-number" aria-live="polite">{score}<span>/100</span></div></div><span className={`status-pill ${tone(score)}`}>{t(rating.readiness_level)}</span></div><div className="score-track"><div className="score-fill" style={{width:`${score}%`}}/></div><div className={`rating-source ${ai?'is-ai':''}`}>{ai?<Bot size={15}/>:<Info size={15}/>} {ai?t("Смысловая оценка ИИ"):rating.mode==='fallback'?t("ИИ недоступен · локальная оценка"):t("Предварительно · локальные правила")}</div><p className="rating-summary">{ratingSummary(rating)}</p>{preview&&<p className="muted compact">{t("Рейтинг станет официальным после вашей проверки и подтверждения.")}</p>}<div className="breakdown-grid">{rating.breakdown?.map(item=><details className="criterion-detail" key={item.field}><summary><span>{t(item.label)}</span><b>{item.points}<small>/{item.weight}</small></b></summary><div className="criterion-bar"><span style={{width:`${item.points/item.weight*100}%`}}/></div><ul>{item.criteria?.map(c=><li className={c.met?'met':'unmet'} key={c.id}><span>{c.met?<Check size={13}/>:<Minus size={13}/>} {t(c.label)} <b>{c.points}/{c.weight}</b></span>{c.evidence&&<blockquote>«{c.evidence}»</blockquote>}</li>)}</ul></details>)}</div>{rating.breakdown?.some(i=>i.points<i.weight)&&<div className="improvements"><h4>{t("Что улучшить в первую очередь")}</h4><ul>{[...rating.breakdown].filter(i=>i.points<i.weight).sort((a,b)=>(b.weight-b.points)-(a.weight-a.points)).slice(0,3).map(i=><li key={i.field}><b>{t(i.label)}</b>: {i.suggestions?.slice(0,2).map(s=>t(s)).join('; ')}{t(". Потенциал: +")}{i.weight-i.points}.</li>)}</ul></div>}<p className="muted compact">{t("Максимум даётся за выполненные критерии, а не за сам факт заполнения. Нажмите на раздел, чтобы увидеть расчёт.")}</p></section>
 }

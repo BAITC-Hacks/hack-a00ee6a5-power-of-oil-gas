@@ -1,21 +1,11 @@
-import { Outlet, Link, NavLink } from 'react-router-dom'
-import { Sparkles } from 'lucide-react'
+import {t,useLocale} from '../i18n';
+import {Link,NavLink,Outlet,useNavigate} from 'react-router-dom';
+import {Command,Plus,LogOut,BriefcaseBusiness,GraduationCap,Sun,Moon} from 'lucide-react';
+import {useAuth} from '../auth/AuthContext';
+export default function Layout(){
+  const {language,theme,setLanguage,setTheme}=useLocale();
 
-export default function Layout() {
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <Link to="/" className="brand">
-          <span className="brand-mark"><Sparkles size={18} /></span>
-          <span>AI SANA <b>Challenge Hub</b></span>
-        </Link>
-        <nav className="nav-links">
-          <NavLink to="/challenges">Каталог</NavLink>
-          <NavLink to="/business/new" className="nav-cta">Создать задачу</NavLink>
-        </nav>
-      </header>
-      <main><Outlet /></main>
-      <footer className="footer">HackAlem AI / AI Sana MVP · Human-in-the-loop</footer>
-    </div>
-  )
+ const {user,logout}=useAuth();const navigate=useNavigate();
+ async function exit(){try{await logout();navigate('/login')}catch(e){window.alert(e.message)}}
+ return <div className={`app-shell role-${user?.role||'guest'}`}><header className="topbar"><Link to="/" className="brand"><span className="brand-mark"><Command size={22}/></span><span>alem<span className="brand-dot">.</span><small>CHALLENGE HUB</small></span></Link><nav className="nav-links" aria-label={t("Основная навигация")}>{user?<><NavLink to="/challenges">{user.role==='business'?t("Мои задачи"):t("Каталог задач")}</NavLink>{user.role==='business'?<NavLink to="/business/new" className="nav-cta"><Plus size={16}/>{" "}{t("Создать задачу")}</NavLink>:<NavLink to="/my-proposals">{t("Мои отклики")}</NavLink>}<span className="account-badge">{user.role==='business'?<BriefcaseBusiness size={16}/>:<GraduationCap size={16}/>}<span>{user.display_name}<small>{user.role==='business'?t("Бизнес"):t("Исполнитель")}</small></span></span><button className="logout-button" onClick={exit} title={t("Выйти")} aria-label={t("Выйти из аккаунта")}><LogOut size={18}/></button></>:<><NavLink to="/" end>{t("Главная")}</NavLink><NavLink to="/login?role=performer">{t("Для исполнителей")}</NavLink><NavLink to="/login" className="nav-cta">{t("Войти в кабинет →")}</NavLink></>}</nav><div className="appearance-controls"><select aria-label={t("Язык")} value={language} onChange={e=>setLanguage(e.target.value)}><option value="kk">ҚАЗ</option><option value="ru">РУС</option><option value="en">ENG</option></select><button type="button" className="theme-toggle" aria-label={t(theme==="dark"?"Светлая тема":"Тёмная тема")} title={t(theme==="dark"?"Светлая тема":"Тёмная тема")} onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?<Sun size={19}/>:<Moon size={19}/>}</button></div></header><main><Outlet/></main><footer className="footer"><Link to="/" className="footer-brand">alem.</Link><span>{t("Бизнес-задачи. Студенческие решения.")}</span><span>AI SANA × HackAlem</span></footer></div>
 }

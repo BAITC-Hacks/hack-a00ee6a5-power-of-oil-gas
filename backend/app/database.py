@@ -79,5 +79,46 @@ def init_db():
                 FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
                 FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL
             );
+            CREATE TABLE IF NOT EXISTS milestones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+                stage TEXT NOT NULL,
+                evidence TEXT NOT NULL,
+                points INTEGER NOT NULL,
+                confirmed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(proposal_id, stage)
+            );
             """
         )
+        columns = {row[1] for row in conn.execute('PRAGMA table_info(challenges)')}
+        if 'ai_mode' not in columns:
+            conn.execute("ALTER TABLE challenges ADD COLUMN ai_mode TEXT NOT NULL DEFAULT 'fallback'")
+        for name, definition in [('owner_id','INTEGER REFERENCES users(id)'), ('rating_json',"TEXT NOT NULL DEFAULT '{}'")]:
+            if name not in columns:
+                conn.execute(f'ALTER TABLE challenges ADD COLUMN {name} {definition}')
+        conn.executescript('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                display_name TEXT NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('business','performer')),
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                expires_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS assessments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                challenge_id INTEGER NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+                card_hash TEXT NOT NULL,
+                rating_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(challenge_id, card_hash)
+            );
+        ''')
+        proposal_columns = {row[1] for row in conn.execute('PRAGMA table_info(proposals)')}
+        if 'owner_id' not in proposal_columns:
+            conn.execute('ALTER TABLE proposals ADD COLUMN owner_id INTEGER REFERENCES users(id)')

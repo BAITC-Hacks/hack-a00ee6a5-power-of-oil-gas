@@ -1,67 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { api } from '../api/client'
-import ScoreCard from '../components/ScoreCard'
-import { Send, ExternalLink } from 'lucide-react'
+import {t,useLocale} from '../i18n';
+import {useEffect,useState} from 'react';
+import {Link,useParams} from 'react-router-dom';
+import {Send,ArrowLeft,ExternalLink} from 'lucide-react';
+import {api} from '../api/client';
+import {useAuth} from '../auth/AuthContext';
+import ScoreCard from '../components/ScoreCard';
+const labels=[['context','Контекст'],['need','Потребность'],['users','Пользователи'],['data_materials','Данные и материалы'],['constraints','Ограничения'],['expected_result','Ожидаемый результат'],['success_criteria','Критерии успеха'],['contact','Контакт'],['interaction_format','Формат взаимодействия']];
+export default function ChallengeDetails(){
+  useLocale();
 
-const labels = [
-  ['context','Контекст'],['need','Потребность'],['users','Пользователи'],['data_materials','Данные и материалы'],
-  ['constraints','Ограничения'],['expected_result','Ожидаемый результат'],['success_criteria','Критерии успеха'],
-  ['contact','Контакт'],['interaction_format','Формат взаимодействия'],
-]
-
-export default function ChallengeDetails() {
-  const { id } = useParams()
-  const [challenge, setChallenge] = useState(null)
-  const [teams, setTeams] = useState([])
-  const [form, setForm] = useState({ team_id: '', team_name: '', solution_idea: '', plan: '', deadline: '', prototype_url: 'https://github.com/example/prototype' })
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    api.getChallenge(id).then(data => setChallenge(data.challenge)).catch(err => setError(err.message))
-    api.getTeams().then(data => setTeams(data.items)).catch(() => {})
-  }, [id])
-
-  function chooseTeam(teamId) {
-    const team = teams.find(x => String(x.id) === String(teamId))
-    setForm({ ...form, team_id: teamId, team_name: team?.name || '' })
-  }
-
-  async function submit(e) {
-    e.preventDefault(); setError(''); setMessage('')
-    try {
-      await api.createProposal({ ...form, challenge_id: Number(id), team_id: form.team_id ? Number(form.team_id) : null })
-      setMessage('Предложение отправлено. Решение принимает бизнес вручную.')
-      setForm({ ...form, solution_idea: '', plan: '', deadline: '' })
-    } catch (err) { setError(err.message) }
-  }
-
-  if (!challenge) return <div className="container page-narrow"><div className="panel">Загрузка…</div></div>
-
-  return (
-    <div className="container split-layout">
-      <div>
-        <div className="page-heading"><span className="eyebrow">{challenge.industry}</span><h1>{challenge.title}</h1><p>{challenge.raw_description}</p></div>
-        <section className="panel detail-list">
-          {labels.map(([key,label]) => <div className="detail-row" key={key}><span>{label}</span><p>{challenge[key] || 'Не указано'}</p></div>)}
-        </section>
-
-        <form className="panel form-panel proposal-form" onSubmit={submit}>
-          <div><span className="eyebrow">Отклик команды</span><h2>Предложить решение</h2><p className="muted">AI не назначает исполнителей. Любая команда может подать отклик.</p></div>
-          <label>Команда<select value={form.team_id} onChange={e => chooseTeam(e.target.value)} required><option value="">Выберите команду</option>{teams.map(t => <option value={t.id} key={t.id}>{t.name}</option>)}</select></label>
-          <label>Идея решения<textarea rows="4" value={form.solution_idea} onChange={e => setForm({...form, solution_idea:e.target.value})} required/></label>
-          <label>План<textarea rows="4" value={form.plan} onChange={e => setForm({...form, plan:e.target.value})} required/></label>
-          <label>Срок<input value={form.deadline} onChange={e => setForm({...form, deadline:e.target.value})} placeholder="Например: 3 недели" required/></label>
-          <label>Ссылка на прототип / репозиторий<input value={form.prototype_url} onChange={e => setForm({...form, prototype_url:e.target.value})} required/></label>
-          {message && <div className="alert success">{message}</div>}{error && <div className="alert error">{error}</div>}
-          <button className="button primary"><Send size={18}/> Отправить предложение</button>
-        </form>
-      </div>
-      <aside className="sticky-side">
-        <ScoreCard rating={challenge.rating} />
-        <Link className="button secondary full" to={`/business/challenge/${id}/proposals`}>Business view <ExternalLink size={17}/></Link>
-      </aside>
-    </div>
-  )
+ const {id}=useParams();const {user}=useAuth();const business=user.role==='business';
+ const [challenge,setChallenge]=useState(null),[form,setForm]=useState({solution_idea:'',plan:'',deadline:'',prototype_url:''}),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ useEffect(()=>{let active=true;setChallenge(null);setError('');setMessage('');api.getChallenge(id).then(d=>{if(active){setChallenge(d.challenge);setError('')}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[id]);
+ async function submit(e){e.preventDefault();setBusy(true);setError('');try{await api.createProposal({...form,team_name:user.display_name,challenge_id:Number(id)});setMessage(t("Отклик отправлен. Его статус доступен в разделе «Мои отклики»."));setForm({solution_idea:'',plan:'',deadline:'',prototype_url:''})}catch(err){setError(err.message)}finally{setBusy(false)}}
+ if(!challenge)return <div className="container page-narrow"><div className="panel form-panel">{error||t("Загружаем задачу…")}<Link to="/challenges">{business?t("К моим задачам"):t("В каталог")}</Link></div></div>;
+ return <div className="container split-layout"><div><Link className="back-link" to="/challenges"><ArrowLeft size={16}/>{business?t("Мои задачи"):t("Каталог задач")}</Link><div className="page-heading"><span className="eyebrow">{challenge.industry}</span><h1>{challenge.title||t("Черновик задачи")}</h1><p>{challenge.raw_description}</p></div><section className="panel detail-list">{labels.map(([key,label])=><div className="detail-row" key={key}><span>{t(label)}</span><p>{challenge[key]||t("Пока не указано")}</p></div>)}</section>{!business&&<form className="panel form-panel proposal-form" onSubmit={submit}><div><span className="eyebrow">{t("Отклик исполнителя")}</span><h2>{t("Предложите свой подход")}</h2><p className="muted">{t("От имени:")}{" "}<b>{user.display_name}</b>{t(". Решение о сотрудничестве принимает бизнес.")}</p></div>{[['solution_idea',t("Идея решения")],['plan',t("План работы")]].map(([key,label])=><label key={key}>{t(label)}<textarea rows={4} required minLength={10} maxLength={4000} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}<label>{t("Срок")}<input required minLength={2} maxLength={120} value={form.deadline} onChange={e=>setForm({...form,deadline:e.target.value})} placeholder={t("Например, три недели")}/></label><label>{t("Ссылка на прототип или репозиторий")}<input type="url" required value={form.prototype_url} onChange={e=>setForm({...form,prototype_url:e.target.value})} placeholder="https://…"/></label>{message&&<div className="alert success">{message} <Link to="/my-proposals">{t("Посмотреть →")}</Link></div>}{error&&<div className="alert error">{error}</div>}<button className="button primary" disabled={busy||challenge.status!=='published'}><Send size={18}/>{busy?t("Отправляем…"):t("Отправить отклик")}</button></form>}</div><aside className="sticky-side"><ScoreCard rating={challenge.rating}/>{business?<><Link className="button primary full" to={`/business/challenge/${id}`}>{t("Улучшить задачу с ИИ")}</Link><Link className="button secondary full" to={`/business/challenge/${id}/proposals`}>{t("Предложения исполнителей")}{" "}<ExternalLink size={16}/></Link></>:<Link className="button secondary full" to="/my-proposals">{t("Мои отклики")}</Link>}</aside></div>
 }
